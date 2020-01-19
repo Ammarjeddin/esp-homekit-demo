@@ -1,108 +1,97 @@
-/*
- * Implemenetation of lock mechanism accessory for a magnet lock.
- * When unlocked, it changes relay state (unlocks) for configured period and then
- * changes it back.
- */
-
 #include <stdio.h>
 #include <espressif/esp_wifi.h>
 #include <espressif/esp_sta.h>
-#include <espressif/esp_common.h>
 #include <esp/uart.h>
 #include <esp8266.h>
 #include <FreeRTOS.h>
 #include <task.h>
-#include <etstimer.h>
-#include <esplibs/libmain.h>
 
 #include <homekit/homekit.h>
 #include <homekit/characteristics.h>
-#include <wifi_config.h>
+#include "wifi.h"
 
-#include "button.h"
 
-// The GPIO pin that is connected to a relay
-const int relay_gpio = 12;
-// The GPIO pin that is connected to a LED
-// const int led_gpio = 13;
-const int led_gpio = 2;
-// The GPIO pin that is connected to a button
-// const int button_gpio = 0;
-const int button_gpio = 4;
+static void wifi_init() {
+    struct sdk_station_config wifi_config = {
+        .ssid = WIFI_SSID,
+        .password = WIFI_PASSWORD,
+    };
 
-// Timeout in seconds to open lock for
-const int unlock_period = 5;  // 5 seconds
-// Which signal to send to relay to open the lock (0 or 1)
-const int relay_open_signal = 1;
-
-void lock_lock();
-void lock_unlock();
-
-void relay_write(int value) {
-    gpio_write(relay_gpio, value ? 1 : 0);
+    sdk_wifi_set_opmode(STATION_MODE);
+    sdk_wifi_station_set_config(&wifi_config);
+    sdk_wifi_station_connect();
 }
+
+const int relay1 = 2;
+const int relay2 = 4;
+const int relay3 = 5;
+const int relay4 = 14;
+const int relay5 = 1;
+const int relay6 = 13;
+const int relay7 = 12;
+const int relay8 = 3;
+bool relay1_on = false;
+bool relay2_on = false;
+bool relay3_on = false;
+bool relay4_on = false;
+bool relay5_on = false;
+bool relay6_on = false;
+bool relay7_on = false;
+bool relay8_on = false;
 
 void led_write(bool on) {
-    gpio_write(led_gpio, on ? 0 : 1);
+    gpio_write(relay1, on ? 0 : 1);
 }
 
-void reset_configuration_task() {
-    //Flash the LED first before we start the reset
-    for (int i=0; i<3; i++) {
-        led_write(true);
-        vTaskDelay(100 / portTICK_PERIOD_MS);
-        led_write(false);
-        vTaskDelay(100 / portTICK_PERIOD_MS);
-    }
-
-    printf("Resetting Wifi Config\n");
-
-    wifi_config_reset();
-
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
-
-    printf("Resetting HomeKit Config\n");
-
-    homekit_server_reset();
-
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
-
-    printf("Restarting\n");
-
-    sdk_system_restart();
-
-    vTaskDelete(NULL);
+void led_write2(bool on) {
+    gpio_write(relay2, on ? 0 : 1);
 }
 
-void reset_configuration() {
-    printf("Resetting configuration\n");
-    xTaskCreate(reset_configuration_task, "Reset configuration", 256, NULL, 2, NULL);
+void led_write3(bool on) {
+    gpio_write(relay3, on ? 0 : 1);
 }
 
-void gpio_init() {
-    gpio_enable(led_gpio, GPIO_OUTPUT);
-    led_write(false);
-
-    gpio_enable(relay_gpio, GPIO_OUTPUT);
-    relay_write(!relay_open_signal);
+void led_write4(bool on) {
+    gpio_write(relay4, on ? 0 : 1);
 }
 
-void button_callback(uint8_t gpio, button_event_t event) {
-    switch (event) {
-        case button_event_single_press:
-            printf("Toggling relay\n");
-            lock_unlock();
-            break;
-        case button_event_long_press:
-            reset_configuration();
-            break;
-        default:
-            printf("Unknown button event: %d\n", event);
-    }
+void led_write5(bool on) {
+    gpio_write(relay5, on ? 0 : 1);
 }
 
-void lock_identify_task(void *_args) {
-    // We identify the Sonoff by Flashing it's LED.
+void led_write6(bool on) {
+    gpio_write(relay6, on ? 0 : 1);
+}
+
+void led_write7(bool on) {
+    gpio_write(relay7, on ? 0 : 1);
+}
+
+void led_write8(bool on) {
+    gpio_write(relay8, on ? 0 : 1);
+}
+
+void led_init() {
+  gpio_enable(relay1, GPIO_OUTPUT);
+	gpio_enable(relay2, GPIO_OUTPUT);
+	gpio_enable(relay3, GPIO_OUTPUT);
+	gpio_enable(relay4, GPIO_OUTPUT);
+  gpio_enable(relay5, GPIO_OUTPUT);
+  gpio_enable(relay6, GPIO_OUTPUT);
+  gpio_enable(relay7, GPIO_OUTPUT);
+  gpio_enable(relay8, GPIO_OUTPUT);
+    led_write(relay1_on);
+    led_write2(relay2_on);
+  	led_write3(relay3_on);
+    led_write4(relay4_on);
+    led_write5(relay5_on);
+    led_write6(relay6_on);
+    led_write7(relay7_on);
+    led_write8(relay8_on);
+}
+
+
+void led_identify_task(void *_args) {
     for (int i=0; i<3; i++) {
         for (int j=0; j<2; j++) {
             led_write(true);
@@ -114,161 +103,193 @@ void lock_identify_task(void *_args) {
         vTaskDelay(250 / portTICK_PERIOD_MS);
     }
 
-    led_write(false);
+    led_write(relay1_on);
 
     vTaskDelete(NULL);
 }
 
-void lock_identify(homekit_value_t _value) {
-    printf("Lock identify\n");
-    xTaskCreate(lock_identify_task, "Lock identify", 128, NULL, 2, NULL);
+
+void led_identify(homekit_value_t _value) {
+    printf("LED identify\n");
+    xTaskCreate(led_identify_task, "LED identify", 128, NULL, 2, NULL);
 }
 
 
-typedef enum {
-    lock_state_unsecured = 0,
-    lock_state_secured = 1,
-    lock_state_jammed = 2,
-    lock_state_unknown = 3,
-} lock_state_t;
 
-
-
-homekit_characteristic_t name = HOMEKIT_CHARACTERISTIC_(NAME, "Lock");
-
-homekit_characteristic_t lock_current_state = HOMEKIT_CHARACTERISTIC_(
-    LOCK_CURRENT_STATE,
-    lock_state_unknown,
-);
-
-void lock_target_state_setter(homekit_value_t value);
-
-homekit_characteristic_t lock_target_state = HOMEKIT_CHARACTERISTIC_(
-    LOCK_TARGET_STATE,
-    lock_state_secured,
-    .setter=lock_target_state_setter,
-);
-
-void lock_target_state_setter(homekit_value_t value) {
-    lock_target_state.value = value;
-
-    if (value.int_value == 0) {
-        lock_unlock();
-    } else {
-        lock_lock();
-    }
+homekit_value_t relay1_on_get() {
+    return HOMEKIT_BOOL(relay1_on);
 }
 
-void lock_control_point(homekit_value_t value) {
-    // Nothing to do here
+homekit_value_t relay2_on_get() {
+    return HOMEKIT_BOOL(relay2_on);
 }
 
-
-ETSTimer lock_timer;
-
-void lock_lock() {
-    sdk_os_timer_disarm(&lock_timer);
-
-    relay_write(!relay_open_signal);
-    led_write(false);
-
-    if (lock_current_state.value.int_value != lock_state_secured) {
-        lock_current_state.value = HOMEKIT_UINT8(lock_state_secured);
-        homekit_characteristic_notify(&lock_current_state, lock_current_state.value);
-    }
+homekit_value_t relay3_on_get() {
+    return HOMEKIT_BOOL(relay3_on);
 }
 
-void lock_timeout() {
-    if (lock_target_state.value.int_value != lock_state_secured) {
-        lock_target_state.value = HOMEKIT_UINT8(lock_state_secured);
-        homekit_characteristic_notify(&lock_target_state, lock_target_state.value);
+homekit_value_t relay4_on_get() {
+    return HOMEKIT_BOOL(relay4_on);
+}
+
+homekit_value_t relay5_on_get() {
+    return HOMEKIT_BOOL(relay5_on);
+}
+
+homekit_value_t relay6_on_get() {
+    return HOMEKIT_BOOL(relay6_on);
+}
+
+homekit_value_t relay7_on_get() {
+    return HOMEKIT_BOOL(relay7_on);
+}
+
+homekit_value_t relay8_on_get() {
+    return HOMEKIT_BOOL(relay8_on);
+}
+
+void relay1_on_set(homekit_value_t value) {
+    if (value.format != homekit_format_bool) {
+        printf("Invalid value format: %d\n", value.format);
+        return;
     }
 
-    lock_lock();
+    relay1_on = value.bool_value;
+    led_write(relay1_on);
 }
 
-void lock_init() {
-    lock_current_state.value = HOMEKIT_UINT8(lock_state_secured);
-    homekit_characteristic_notify(&lock_current_state, lock_current_state.value);
-
-    sdk_os_timer_disarm(&lock_timer);
-    sdk_os_timer_setfn(&lock_timer, lock_timeout, NULL);
-}
-
-void lock_unlock() {
-    relay_write(relay_open_signal);
-    led_write(true);
-
-    lock_current_state.value = HOMEKIT_UINT8(lock_state_unsecured);
-    homekit_characteristic_notify(&lock_current_state, lock_current_state.value);
-
-    if (unlock_period) {
-        sdk_os_timer_disarm(&lock_timer);
-        sdk_os_timer_arm(&lock_timer, unlock_period * 1000, 0);
+void relay2_on_set(homekit_value_t value) {
+    if (value.format != homekit_format_bool) {
+        printf("Invalid value format: %d\n", value.format);
+        return;
     }
+
+    relay2_on = value.bool_value;
+    led_write2(relay2_on);
+}
+
+void relay3_on_set(homekit_value_t value) {
+    if (value.format != homekit_format_bool) {
+        printf("Invalid value format: %d\n", value.format);
+        return;
+    }
+
+    relay3_on = value.bool_value;
+    led_write3(relay3_on);
+}
+
+void relay4_on_set(homekit_value_t value) {
+    if (value.format != homekit_format_bool) {
+        printf("Invalid value format: %d\n", value.format);
+        return;
+    }
+
+    relay4_on = value.bool_value;
+    led_write4(relay4_on);
+}
+
+void relay5_on_set(homekit_value_t value) {
+    if (value.format != homekit_format_bool) {
+        printf("Invalid value format: %d\n", value.format);
+        return;
+    }
+
+    relay5_on = value.bool_value;
+    led_write5(relay5_on);
+}
+
+void relay6_on_set(homekit_value_t value) {
+    if (value.format != homekit_format_bool) {
+        printf("Invalid value format: %d\n", value.format);
+        return;
+    }
+
+    relay6_on = value.bool_value;
+    led_write6(relay6_on);
+}
+
+void relay7_on_set(homekit_value_t value) {
+    if (value.format != homekit_format_bool) {
+        printf("Invalid value format: %d\n", value.format);
+        return;
+    }
+
+    relay7_on = value.bool_value;
+    led_write7(relay7_on);
+}
+
+void relay8_on_set(homekit_value_t value) {
+    if (value.format != homekit_format_bool) {
+        printf("Invalid value format: %d\n", value.format);
+        return;
+    }
+
+    relay8_on = value.bool_value;
+    led_write8(relay8_on);
 }
 
 homekit_accessory_t *accessories[] = {
-    HOMEKIT_ACCESSORY(.id=1, .category=homekit_accessory_category_door_lock, .services=(homekit_service_t*[]){
+    HOMEKIT_ACCESSORY(.id=1, .category=homekit_accessory_category_switch, .services=(homekit_service_t*[]){
         HOMEKIT_SERVICE(ACCESSORY_INFORMATION, .characteristics=(homekit_characteristic_t*[]){
-            &name,
-            HOMEKIT_CHARACTERISTIC(MANUFACTURER, "HaPK"),
-            HOMEKIT_CHARACTERISTIC(SERIAL_NUMBER, "1"),
-            HOMEKIT_CHARACTERISTIC(MODEL, "Basic"),
-            HOMEKIT_CHARACTERISTIC(FIRMWARE_REVISION, "0.1"),
-            HOMEKIT_CHARACTERISTIC(IDENTIFY, lock_identify),
+            HOMEKIT_CHARACTERISTIC(NAME, "AB_Locks"),
+            HOMEKIT_CHARACTERISTIC(MANUFACTURER, "AB Academy"),
+            HOMEKIT_CHARACTERISTIC(SERIAL_NUMBER, "0x000000"),
+            HOMEKIT_CHARACTERISTIC(MODEL, "Relay_4CH"),
+            HOMEKIT_CHARACTERISTIC(FIRMWARE_REVISION, "1.25"),
+            HOMEKIT_CHARACTERISTIC(IDENTIFY, led_identify),
             NULL
         }),
         HOMEKIT_SERVICE(LOCK_MECHANISM, .primary=true, .characteristics=(homekit_characteristic_t*[]){
-            HOMEKIT_CHARACTERISTIC(NAME, "Lock"),
-            &lock_current_state,
-            &lock_target_state,
-            NULL
-        }),
-        HOMEKIT_SERVICE(LOCK_MANAGEMENT, .characteristics=(homekit_characteristic_t*[]){
-            HOMEKIT_CHARACTERISTIC(LOCK_CONTROL_POINT,
-                .setter=lock_control_point
+            HOMEKIT_CHARACTERISTIC(NAME, "Lock1"),
+            HOMEKIT_CHARACTERISTIC(
+                ON, false,
+                .getter=relay1_on_get,
+                .setter=relay1_on_set
             ),
-            HOMEKIT_CHARACTERISTIC(VERSION, "1"),
             NULL
         }),
-        NULL
-    }),
-    NULL
-};
+		HOMEKIT_SERVICE(LOCK_MECHANISM, .primary=true, .characteristics=(homekit_characteristic_t*[]){
+            HOMEKIT_CHARACTERISTIC(NAME, "Lock2"),
+            HOMEKIT_CHARACTERISTIC(
+                ON, false,
+                .getter=relay2_on_get,
+                .setter=relay2_on_set
+            ),
+            NULL
+        }),
+			HOMEKIT_SERVICE(SWITCH, .primary=true, .characteristics=(homekit_characteristic_t*[]){
+            HOMEKIT_CHARACTERISTIC(NAME, "Relay3"),
+            HOMEKIT_CHARACTERISTIC(
+                ON, false,
+                .getter=relay3_on_get,
+                .setter=relay3_on_set
+            ),
+            NULL
+        }),
+			HOMEKIT_SERVICE(SWITCH, .primary=true, .characteristics=(homekit_characteristic_t*[]){
+            HOMEKIT_CHARACTERISTIC(NAME, "Relay4"),
+            HOMEKIT_CHARACTERISTIC(
+                ON, false,
+                .getter=relay4_on_get,
+                .setter=relay4_on_set
+              ),
+              NULL
+          }),
+    
+  NULL
+  }),
+  NULL
+  };
 
 homekit_server_config_t config = {
     .accessories = accessories,
     .password = "111-11-111"
 };
 
-void on_wifi_ready() {
-    homekit_server_init(&config);
-}
-
-void create_accessory_name() {
-    uint8_t macaddr[6];
-    sdk_wifi_get_macaddr(STATION_IF, macaddr);
-
-    int name_len = snprintf(NULL, 0, "Lock-%02X%02X%02X",
-                            macaddr[3], macaddr[4], macaddr[5]);
-    char *name_value = malloc(name_len+1);
-    snprintf(name_value, name_len+1, "Lock-%02X%02X%02X",
-             macaddr[3], macaddr[4], macaddr[5]);
-
-    name.value = HOMEKIT_STRING(name_value);
-}
-
 void user_init(void) {
     uart_set_baud(0, 115200);
 
-    create_accessory_name();
-
-    wifi_config_init("lock", NULL, on_wifi_ready);
-    gpio_init();
-    lock_init();
-
-    if (button_create(button_gpio, 0, 4000, button_callback)) {
-        printf("Failed to initialize button\n");
-    }
+    wifi_init();
+    led_init();
+    homekit_server_init(&config);
 }
