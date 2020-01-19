@@ -45,6 +45,7 @@ void led_write(bool on) {
 
 void led_write2(bool on) {
     gpio_write(relay2, on ? 0 : 1);
+    
 }
 
 void led_write3(bool on) {
@@ -239,7 +240,7 @@ homekit_accessory_t *accessories[] = {
             HOMEKIT_CHARACTERISTIC(IDENTIFY, led_identify),
             NULL
         }),
-        HOMEKIT_SERVICE(LOCK_MECHANISM, .primary=true, .characteristics=(homekit_characteristic_t*[]){
+        HOMEKIT_SERVICE(SWITCH, .primary=true, .characteristics=(homekit_characteristic_t*[]){
             HOMEKIT_CHARACTERISTIC(NAME, "Lock1"),
             HOMEKIT_CHARACTERISTIC(
                 ON, false,
@@ -248,7 +249,7 @@ homekit_accessory_t *accessories[] = {
             ),
             NULL
         }),
-		HOMEKIT_SERVICE(LOCK_MECHANISM, .primary=true, .characteristics=(homekit_characteristic_t*[]){
+		HOMEKIT_SERVICE(SWITCH, .primary=true, .characteristics=(homekit_characteristic_t*[]){
             HOMEKIT_CHARACTERISTIC(NAME, "Lock2"),
             HOMEKIT_CHARACTERISTIC(
                 ON, false,
